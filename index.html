@@ -10,7 +10,7 @@
     <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
     <style>
         :root { --bg-dark: #121212; --titanium: #B0AFAA; --orange-primary: #F28C28; --glass-bg: rgba(30, 30, 30, 0.8); --glass-border: rgba(255, 255, 255, 0.1); }
-        body { background-color: var(--bg-dark); color: #E0E0E0; font-family: -apple-system, sans-serif; padding-bottom: 100px; }
+        body { background-color: var(--bg-dark); color: #E0E0E0; font-family: -apple-system, sans-serif; padding-bottom: 120px; overflow-x: hidden; }
         .glass-panel { background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
         .text-orange { color: var(--orange-primary) !important; }
         .btn-orange { background-color: var(--orange-primary); color: #111; font-weight: 600; border: none; }
@@ -20,27 +20,30 @@
         .floating-action-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 800px; z-index: 1000; padding: 10px; display: flex; align-items: center; gap: 10px; }
         .chat-input { flex-grow: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); color: #fff; border-radius: 20px; padding: 12px 20px; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
-        /* Animasi Transisi Halaman */
         .page-view { display: none; animation: fadeIn 0.4s; }
         .page-view.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Memastikan tabel tidak terpotong */
+        th, td { white-space: nowrap; }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-dark glass-panel m-3 sticky-top">
+    <!-- Header -->
+    <nav class="navbar navbar-dark glass-panel m-3 sticky-top" style="z-index: 1020;">
         <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="#" onclick="showPage('home')">
+            <a class="navbar-brand d-flex align-items-center" href="#" onclick="showPage('home')" style="cursor: pointer;">
                 <i class="fa-solid fa-layer-group text-orange fs-3 me-2"></i>
-                <div><span class="fw-bold d-block lh-1">Nexus SDM</span><small class="text-titanium" style="font-size: 0.7rem;">Reporting Engine</small></div>
+                <div><span class="fw-bold d-block lh-1">Nexus SDM</span><small class="text-titanium" style="font-size: 0.7rem;">Reporting Engine v3</small></div>
             </a>
-            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#settingsModal"><i class="fa-solid fa-gear"></i></button>
+            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#settingsModal"><i class="fa-solid fa-gear"></i> Setup</button>
         </div>
     </nav>
 
+    <!-- HALAMAN 1: HOME (Daftar Laporan) -->
     <div id="pageHome" class="container-fluid px-4 mt-4 page-view active">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="text-light"><i class="fa-solid fa-folder-tree text-orange"></i> Arsip Laporan Data</h4>
+            <h4 class="text-light m-0"><i class="fa-solid fa-folder-tree text-orange"></i> Arsip Laporan Data</h4>
             <span class="badge bg-dark border border-secondary p-2">Total: <span id="totalArsipCount">0</span> Dokumen</span>
         </div>
         
@@ -49,30 +52,35 @@
         </div>
     </div>
 
+    <!-- HALAMAN 2: DASHBOARD DETAIL -->
     <div id="pageDashboard" class="container-fluid px-4 mt-4 page-view">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <button class="btn btn-sm btn-outline-light" onclick="showPage('home')"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
             <h4 class="text-orange mb-0 fw-bold" id="dashTitle">Nama Proyek</h4>
             <div>
                 <button class="btn btn-sm btn-outline-primary me-2" id="btnDriveLink" style="display:none;" target="_blank"><i class="fa-brands fa-google-drive"></i> Buka Drive</button>
-                <button class="btn btn-sm btn-orange" onclick="syncReportToCloud()"><i class="fa-solid fa-cloud-arrow-up"></i> Jadikan Laporan Resmi</button>
+                <button class="btn btn-sm btn-orange" id="btnSyncReport" onclick="syncReportToCloud()"><i class="fa-solid fa-cloud-arrow-up"></i> Jadikan Laporan Resmi</button>
             </div>
         </div>
 
         <div class="row g-4 mb-4">
+            <!-- Widget Total -->
             <div class="col-md-3">
-                <div class="glass-panel p-4 text-center h-100">
+                <div class="glass-panel p-4 text-center h-100 d-flex flex-column justify-content-center">
                     <h6 class="text-muted text-uppercase mb-2">Total Penerima</h6>
                     <h1 class="fw-bold text-light m-0" id="dashTotalKPM">0</h1>
-                    <small class="text-success" id="dashSyncStatus"><i class="fa-solid fa-check-circle"></i> Data Tersedia</small>
+                    <small class="text-success mt-2" id="dashSyncStatus"><i class="fa-solid fa-check-circle"></i> Data Tersedia</small>
                 </div>
             </div>
+            <!-- Widget Geospasial -->
             <div class="col-md-9">
                 <div class="glass-panel p-4 h-100">
                     <h6 class="text-orange mb-3"><i class="fa-solid fa-map-location-dot"></i> Rincian Per Kecamatan</h6>
-                    <div class="table-responsive" style="max-height: 200px;">
-                        <table class="table table-dark table-sm table-hover">
-                            <thead><tr><th>Kecamatan</th><th class="text-end">Jumlah KPM</th></tr></thead>
+                    <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                        <table class="table table-dark table-sm table-hover align-middle">
+                            <thead style="position: sticky; top: 0; background: #1e1e1e;">
+                                <tr><th>Kecamatan</th><th class="text-end">Jumlah KPM</th></tr>
+                            </thead>
                             <tbody id="kecamatanBody"></tbody>
                         </table>
                     </div>
@@ -80,82 +88,124 @@
             </div>
         </div>
 
+        <!-- AI Panel -->
         <div class="glass-panel p-4 mb-4">
             <h5 class="text-orange mb-3"><i class="fa-solid fa-robot"></i> Analisis AI</h5>
-            <div id="aiSummaryBox" class="text-light small"><span class="text-muted">Gunakan kotak di bawah untuk meminta AI membersihkan atau memfilter data ini...</span></div>
+            <div id="aiSummaryBox" class="text-light small"><span class="text-muted">Ketik instruksi di kotak obrolan bawah untuk memfilter data...</span></div>
         </div>
 
+        <!-- Master Data Table -->
         <div class="glass-panel p-4 mb-4">
-            <h5 class="mb-3"><i class="fa-solid fa-table text-orange"></i> Pratinjau Dataset</h5>
-            <div class="table-responsive" style="max-height: 400px;">
-                <table class="table table-dark table-sm table-striped">
-                    <thead id="dataHead" style="position: sticky; top: 0; background: #2A2A2C;"></thead>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0"><i class="fa-solid fa-table text-orange"></i> Pratinjau Dataset</h5>
+                <button class="btn btn-sm btn-outline-light" onclick="exportToExcel()"><i class="fa-solid fa-file-excel text-success"></i> Download Lokal (XLSX)</button>
+            </div>
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-dark table-sm table-striped table-bordered border-secondary">
+                    <thead id="dataHead" style="position: sticky; top: 0; background: #2A2A2C; box-shadow: 0 2px 5px rgba(0,0,0,0.5);"></thead>
                     <tbody id="dataBody"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
+    <!-- Floating Action Bar -->
     <div class="floating-action-bar glass-panel shadow-lg">
         <input type="file" id="excelFile" class="sr-only" accept=".xlsx, .xls, .csv" multiple onchange="prepareUpload(event)">
         <label for="excelFile" class="btn btn-outline-secondary rounded-circle p-3 mb-0" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
             <i class="fa-solid fa-plus fs-5 text-light"></i>
         </label>
-        <input type="text" id="aiPrompt" class="form-control chat-input" placeholder="Tanya AI: 'Hapus KPM ganda...'" onkeypress="if(event.key === 'Enter') processWithAI()">
+        <input type="text" id="aiPrompt" class="form-control chat-input" placeholder="Tanya AI: 'Tampilkan hanya Kecamatan X...'" onkeypress="if(event.key === 'Enter') processWithAI()">
         <button class="btn btn-orange rounded-circle p-3" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;" onclick="processWithAI()"><i class="fa-solid fa-paper-plane fs-5"></i></button>
     </div>
 
-    <div class="modal fade" id="uploadModal" tabindex="-1" data-bs-theme="dark">
+    <!-- Modal Upload -->
+    <div class="modal fade" id="uploadModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog">
             <div class="modal-content glass-panel">
-                <div class="modal-header border-secondary"><h5 class="text-orange">Unggah Laporan</h5></div>
+                <div class="modal-header border-secondary"><h5 class="text-orange fw-bold">Unggah Laporan</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
-                    <p class="text-muted small">Menemukan <strong id="fileCount" class="text-light">0</strong> file. AI akan otomatis mencari Header yang benar dan mengabaikan kop/pivot.</p>
-                    <input type="text" id="inputProjectName" class="form-control bg-dark text-light border-secondary" placeholder="Contoh: PKH Tahap 1 2026">
+                    <p class="text-muted small">Menemukan <strong id="fileCount" class="text-light">0</strong> file Excel. Sistem akan otomatis membersihkan Kop Surat dan Pivot yang rusak.</p>
+                    <input type="text" id="inputProjectName" class="form-control bg-dark text-light border-secondary" placeholder="Contoh: BNBA PKH Tahap 1 2026">
                 </div>
                 <div class="modal-footer border-secondary">
-                    <button class="btn btn-orange" onclick="executeSmartUpload()">Ekstrak & Simpan</button>
+                    <button class="btn btn-orange w-100" id="btnExtract" onclick="executeSmartUpload()">Mulai Ekstrak Data</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="modal fade" id="settingsModal" tabindex="-1" data-bs-theme="dark">
+    <!-- Modal Vault (Settings) -->
+    <div class="modal fade" id="settingsModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content glass-panel">
-                <div class="modal-header border-secondary"><h5 class="text-orange">Setup Vault</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-header border-secondary"><h5 class="text-orange fw-bold"><i class="fa-solid fa-vault"></i> Setup Server Brankas</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
-                    <input type="password" id="inputGasUrl" class="form-control bg-dark text-light border-secondary" placeholder="GAS Web App URL...">
+                    <p class="text-muted small">Masukkan URL Google Apps Script Anda di sini. Ini akan mengaktifkan fitur Sinkronisasi Drive dan AI Analyst.</p>
+                    <input type="password" id="inputGasUrl" class="form-control bg-dark text-light border-secondary" placeholder="https://script.google.com/macros/s/.../exec">
                 </div>
                 <div class="modal-footer border-secondary">
-                    <button class="btn btn-outline-danger" onclick="clearDatabase()">Reset Semua</button>
-                    <button class="btn btn-orange" onclick="saveSettings()">Simpan</button>
+                    <button class="btn btn-outline-danger me-auto" onclick="clearDatabase()">Hapus Semua Arsip</button>
+                    <button class="btn btn-orange" onclick="saveSettings()">Simpan URL</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
-        <div id="sysToast" class="toast glass-panel border-orange" role="alert"><div class="toast-body text-light" id="toastMsg"></div></div>
+    <!-- Toast Notification (Dipastikan selalu paling depan dan tidak memblokir klik) -->
+    <div class="toast-container position-fixed top-0 end-0 p-4" style="z-index: 99999; pointer-events: none;">
+        <div id="sysToast" class="toast glass-panel border-orange" role="alert" aria-live="assertive" aria-atomic="true" style="pointer-events: auto;">
+            <div class="toast-header bg-transparent text-light border-secondary">
+                <i class="fa-solid fa-bell text-orange me-2"></i>
+                <strong class="me-auto text-orange">Sistem Nexus</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body text-light fw-bold" id="toastMsg" style="font-size: 1.05rem;"></div>
+        </div>
     </div>
 
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- CORE SYSTEM SCRIPT -->
     <script>
-        // Database Schema
+        // Inisialisasi Database Lokal
         const db = new Dexie("NexusSDM_DB_v3");
         db.version(1).stores({ masterData: '++id, project_name', projectMeta: 'project_name, drive_link, created_at' });
 
         let pendingFiles = [];
         let currentProcessedData = []; 
         let currentProject = "";
-        const toastEl = new bootstrap.Toast(document.getElementById('sysToast'));
-        function showToast(msg) { document.getElementById('toastMsg').innerHTML = msg; toastEl.show(); }
-
+        
+        // Setup Notifikasi Pintar
+        let toastEl;
         window.onload = async () => {
+            toastEl = new bootstrap.Toast(document.getElementById('sysToast'), { delay: 4000 });
             document.getElementById('inputGasUrl').value = localStorage.getItem('nexus_gas_vault') || '';
             await renderHomePage();
         };
 
+        function showToast(msg) { 
+            document.getElementById('toastMsg').innerHTML = msg; 
+            toastEl.show(); 
+        }
+
+        // FUNGSI PENGHANCUR KACA PELINDUNG (ANTI-FREEZE MODAL BUG)
+        function forceCloseModal(modalId) {
+            try {
+                const modalElement = document.getElementById(modalId);
+                const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                if (modalInstance) modalInstance.hide();
+                
+                // Sapu bersih sisa backdrop yang menyangkut secara paksa
+                document.querySelectorAll('.modal-backdrop').forEach(bd => bd.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+            } catch(e) { console.error("Modal fix error:", e); }
+        }
+
+        // Navigasi Halaman
         function showPage(pageId) {
             document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
             if(pageId === 'home') {
@@ -168,11 +218,11 @@
 
         function saveSettings() {
             localStorage.setItem('nexus_gas_vault', document.getElementById('inputGasUrl').value);
-            bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
-            showToast("Vault URL Tersimpan!");
+            forceCloseModal('settingsModal');
+            showToast("<i class='fa-solid fa-check'></i> URL Server Brankas berhasil disimpan!");
         }
 
-        // --- SMART UPLOAD: MENCARI HEADER OTOMATIS (Bypass Kop/Pivot) ---
+        // --- SMART UPLOAD ENGINE ---
         function prepareUpload(event) {
             pendingFiles = Array.from(event.target.files);
             if(pendingFiles.length === 0) return;
@@ -181,59 +231,73 @@
         }
 
         async function executeSmartUpload() {
+            const btnExt = document.getElementById('btnExtract');
             const projName = document.getElementById('inputProjectName').value.trim() || `Laporan_${Date.now()}`;
-            bootstrap.Modal.getInstance(document.getElementById('uploadModal')).hide();
-            showToast(`<i class="fa-solid fa-spinner fa-spin"></i> Mengekstrak data...`);
             
-            let allMergedData = [];
-            for (let file of pendingFiles) {
-                const data = await file.arrayBuffer();
-                const workbook = XLSX.read(data, {type: 'array'});
-                
-                for (let sheetName of workbook.SheetNames) {
-                    const worksheet = workbook.Sheets[sheetName];
-                    const rawAoa = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""}); // Baca sebagai Array murni
-                    if(rawAoa.length === 0) continue;
+            btnExt.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyiapkan...`;
+            btnExt.disabled = true;
 
-                    let headerRowIdx = 0;
-                    // Logic: Cari baris pertama yang punya minimal 4 sel berisi Teks (Ini pasti header tabel, bukan Kop/Pivot title)
-                    for(let i=0; i < Math.min(20, rawAoa.length); i++) {
-                        let textCells = rawAoa[i].filter(c => typeof c === 'string' && c.trim().length > 1).length;
-                        if(textCells >= 4) { headerRowIdx = i; break; }
+            // 1. Hancurkan pop-up dulu agar layar tidak membeku
+            forceCloseModal('uploadModal');
+            showToast(`<i class="fa-solid fa-gear fa-spin"></i> Memulai ekstraksi data tingkat lanjut...`);
+
+            // 2. Beri jeda sistem 200ms agar animasi layar normal dulu sebelum dihajar file besar
+            setTimeout(async () => {
+                try {
+                    let allMergedData = [];
+                    for (let file of pendingFiles) {
+                        const data = await file.arrayBuffer();
+                        const workbook = XLSX.read(data, {type: 'array'});
+                        
+                        for (let sheetName of workbook.SheetNames) {
+                            const worksheet = workbook.Sheets[sheetName];
+                            const rawAoa = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
+                            if(rawAoa.length === 0) continue;
+
+                            let headerRowIdx = 0;
+                            // Cari Header Asli (Baris yang punya minimal 4 kolom berteks)
+                            for(let i=0; i < Math.min(30, rawAoa.length); i++) {
+                                let textCells = rawAoa[i].filter(c => typeof c === 'string' && c.trim().length > 1).length;
+                                if(textCells >= 4) { headerRowIdx = i; break; }
+                            }
+
+                            const rawJson = XLSX.utils.sheet_to_json(worksheet, {range: headerRowIdx, defval: ""});
+                            rawJson.forEach(row => {
+                                let normalizedRow = { project_name: projName };
+                                let hasData = false;
+                                for (let key in row) {
+                                    let cleanKey = key.toString().toUpperCase().trim().replace(/\s+/g, '_');
+                                    let cellVal = row[key];
+                                    if(cleanKey && !cleanKey.includes('__EMPTY') && cellVal !== "") {
+                                        normalizedRow[cleanKey] = cellVal;
+                                        hasData = true;
+                                    }
+                                }
+                                if(hasData) allMergedData.push(normalizedRow);
+                            });
+                        }
                     }
 
-                    // Parsing ulang mulai dari baris header yang ditemukan
-                    const rawJson = XLSX.utils.sheet_to_json(worksheet, {range: headerRowIdx, defval: ""});
-                    
-                    rawJson.forEach(row => {
-                        let normalizedRow = { project_name: projName };
-                        let hasData = false;
-                        for (let key in row) {
-                            let cleanKey = key.toString().toUpperCase().trim().replace(/\s+/g, '_');
-                            let cellVal = row[key];
-                            if(cleanKey && !cleanKey.includes('__EMPTY') && cellVal !== "") {
-                                normalizedRow[cleanKey] = cellVal;
-                                hasData = true;
-                            }
-                        }
-                        if(hasData) allMergedData.push(normalizedRow); // Abaikan baris benar-benar kosong
-                    });
+                    if (allMergedData.length > 0) {
+                        await db.masterData.bulkAdd(allMergedData);
+                        await db.projectMeta.put({project_name: projName, created_at: new Date().toISOString(), drive_link: ""});
+                        showToast(`<i class="fa-solid fa-check text-success"></i> Sukses menyatukan ${allMergedData.length} data.`);
+                        openDashboard(projName);
+                    } else {
+                        showToast("<i class='fa-solid fa-triangle-exclamation'></i> Gagal menemukan pola tabel yang benar.");
+                    }
+                } catch (err) {
+                    showToast(`Error Pembacaan: ${err.message}`);
+                } finally {
+                    pendingFiles = [];
+                    document.getElementById('excelFile').value = ''; 
+                    btnExt.innerHTML = `Mulai Ekstrak Data`;
+                    btnExt.disabled = false;
                 }
-            }
-
-            if (allMergedData.length > 0) {
-                await db.masterData.bulkAdd(allMergedData);
-                await db.projectMeta.put({project_name: projName, created_at: new Date().toISOString(), drive_link: ""});
-                showToast(`Sukses mengekstrak ${allMergedData.length} data.`);
-                pendingFiles = [];
-                document.getElementById('excelFile').value = ''; 
-                openDashboard(projName);
-            } else {
-                showToast("Gagal menemukan data valid di file tersebut.");
-            }
+            }, 200);
         }
 
-        // --- RENDER HALAMAN HOME (Card View) ---
+        // --- RENDER HALAMAN HOME ---
         async function renderHomePage() {
             const metaData = await db.projectMeta.toArray();
             document.getElementById('totalArsipCount').innerText = metaData.length;
@@ -248,24 +312,24 @@
             for(let meta of metaData.reverse()) {
                 const count = await db.masterData.where('project_name').equals(meta.project_name).count();
                 const date = new Date(meta.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
-                const isSynced = meta.drive_link ? `<span class="badge bg-success bg-opacity-25 text-success ms-2"><i class="fa-solid fa-cloud-check"></i> Synced</span>` : '';
+                const isSynced = meta.drive_link ? `<span class="badge bg-success bg-opacity-25 text-success ms-2"><i class="fa-solid fa-cloud-check"></i> Tersimpan di Drive</span>` : '';
                 
                 container.innerHTML += `
                 <div class="col-md-4">
                     <div class="glass-panel p-3 report-card h-100 d-flex flex-column justify-content-between" onclick="openDashboard('${meta.project_name}')">
                         <div>
-                            <h6 class="text-light mb-1 fw-bold">${meta.project_name}</h6>
+                            <h5 class="text-light mb-1 fw-bold">${meta.project_name}</h5>
                             <small class="text-muted"><i class="fa-regular fa-calendar"></i> ${date} ${isSynced}</small>
                         </div>
                         <div class="mt-3">
-                            <h4 class="text-orange m-0">${count.toLocaleString('id-ID')} <small class="text-muted fs-6 fw-normal">KPM</small></h4>
+                            <h3 class="text-orange m-0 fw-bold">${count.toLocaleString('id-ID')} <small class="text-muted fs-6 fw-normal">KPM</small></h3>
                         </div>
                     </div>
                 </div>`;
             }
         }
 
-        // --- DASHBOARD ANALITIK ---
+        // --- BUKA DASHBOARD ---
         async function openDashboard(projName) {
             currentProject = projName;
             document.getElementById('dashTitle').innerText = projName;
@@ -274,16 +338,16 @@
             currentProcessedData = data;
             document.getElementById('dashTotalKPM').innerText = data.length.toLocaleString('id-ID');
 
-            // Cek status Drive Link
+            // Cek status Sinkronisasi Drive
             const meta = await db.projectMeta.get(projName);
             const btnDrive = document.getElementById('btnDriveLink');
             if(meta && meta.drive_link) {
                 btnDrive.style.display = 'inline-block';
                 btnDrive.onclick = () => window.open(meta.drive_link, '_blank');
-                document.getElementById('dashSyncStatus').innerHTML = `<i class="fa-solid fa-cloud-check text-success"></i> Sinkron Drive`;
+                document.getElementById('dashSyncStatus').innerHTML = `<i class="fa-solid fa-cloud-check text-success"></i> Sinkron Google Drive`;
             } else {
                 btnDrive.style.display = 'none';
-                document.getElementById('dashSyncStatus').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-warning"></i> Belum ke Drive`;
+                document.getElementById('dashSyncStatus').innerHTML = `<i class="fa-solid fa-hard-drive text-warning"></i> Tersimpan Lokal`;
             }
 
             // Agregasi Geospasial
@@ -291,31 +355,42 @@
             const tbody = document.getElementById('kecamatanBody');
             if(kecamatanCol) {
                 const countMap = data.reduce((acc, row) => {
-                    let loc = row[kecamatanCol] || 'LAINNYA';
+                    let loc = row[kecamatanCol] || 'TIDAK DIKETAHUI';
                     acc[loc] = (acc[loc] || 0) + 1;
                     return acc;
                 }, {});
                 
-                // Urutkan dari terbesar
                 let sortedCount = Object.entries(countMap).sort((a,b) => b[1] - a[1]);
                 tbody.innerHTML = '';
                 sortedCount.forEach(([kec, count]) => {
-                    tbody.innerHTML += `<tr><td>${kec}</td><td class="text-end fw-bold text-orange">${count.toLocaleString('id-ID')}</td></tr>`;
+                    tbody.innerHTML += `<tr><td class="text-light">${kec}</td><td class="text-end fw-bold text-orange">${count.toLocaleString('id-ID')}</td></tr>`;
                 });
             } else {
-                tbody.innerHTML = `<tr><td colspan="2" class="text-warning text-center">Data wilayah tidak terdeteksi.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="2" class="text-warning text-center py-3"><i class="fa-solid fa-circle-exclamation"></i> Kolom Kecamatan tidak terdeteksi.</td></tr>`;
             }
+            
             renderTable(data);
             showPage('dashboard');
         }
 
-        // --- JADIKAN LAPORAN RESMI (Kirim ke GAS -> Buat File Drive) ---
+        // --- SINKRONISASI KE GOOGLE DRIVE ---
         async function syncReportToCloud() {
             const gasUrl = localStorage.getItem('nexus_gas_vault');
-            if(!gasUrl) { showToast("Atur URL GAS di Setup Vault!"); return; }
-            if(!currentProcessedData.length) return;
+            if(!gasUrl) { 
+                showToast("⚠️ Anda belum memasukkan URL Server Google Apps Script!"); 
+                new bootstrap.Modal(document.getElementById('settingsModal')).show();
+                return; 
+            }
+            if(!currentProcessedData.length) {
+                showToast("Data masih kosong, tidak ada yang bisa dikirim.");
+                return;
+            }
             
-            showToast(`<i class="fa-solid fa-spinner fa-spin"></i> Mengirim Laporan ke Google Drive...`);
+            const btnSync = document.getElementById('btnSyncReport');
+            const originalText = btnSync.innerHTML;
+            btnSync.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyinkronkan...`;
+            btnSync.disabled = true;
+
             try {
                 const response = await fetch(gasUrl, {
                     method: 'POST',
@@ -325,29 +400,51 @@
                 const result = await response.json();
                 
                 if(result.status === 'success') {
-                    showToast(`<i class="fa-solid fa-check"></i> ${result.message}`);
-                    // Simpan link Drive ke meta data lokal
+                    showToast(`<i class="fa-solid fa-circle-check text-success"></i> ${result.message}`);
                     await db.projectMeta.update(currentProject, {drive_link: result.link});
-                    openDashboard(currentProject); // Refresh UI
-                } else { throw new Error(result.message); }
-            } catch (e) { showToast(`Gagal: ${e.message}`); }
+                    openDashboard(currentProject); 
+                } else { 
+                    throw new Error(result.message); 
+                }
+            } catch (e) { 
+                showToast(`<i class="fa-solid fa-triangle-exclamation text-danger"></i> Gagal Sync: ${e.message}`); 
+            } finally {
+                btnSync.innerHTML = originalText;
+                btnSync.disabled = false;
+            }
         }
 
-        // AI & Render Logic (Sama seperti v2)
+        // --- AI ANALYST ---
         async function processWithAI() {
             const prompt = document.getElementById('aiPrompt').value;
             const gasUrl = localStorage.getItem('nexus_gas_vault');
-            if(!gasUrl || !currentProcessedData.length) return;
-            document.getElementById('aiSummaryBox').innerHTML = `<i class="fa-solid fa-spinner fa-spin text-orange"></i> AI Menganalisis...`;
+            if(!prompt) return;
+            if(!gasUrl) { showToast("⚠️ URL Server GAS belum diisi!"); return; }
+            if(!currentProcessedData.length) return;
+
+            const btnSend = document.querySelector('.chat-input').nextElementSibling;
+            btnSend.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i>`;
+
+            document.getElementById('aiSummaryBox').innerHTML = `<i class="fa-solid fa-spinner fa-spin text-orange"></i> AI sedang menganalisis perintah...`;
+            
             try {
-                const response = await fetch(gasUrl, { method: 'POST', body: JSON.stringify({ action: "ask_ai", prompt: prompt }), headers: { 'Content-Type': 'text/plain;charset=utf-8' }});
+                const response = await fetch(gasUrl, { 
+                    method: 'POST', 
+                    body: JSON.stringify({ action: "ask_ai", prompt: prompt }), 
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                });
                 const result = await response.json();
                 if(result.status === 'success') {
                     const aiJSON = result.ai_response;
-                    document.getElementById('aiSummaryBox').innerHTML = `<strong><i class="fa-solid fa-robot text-orange"></i> AI:</strong> ${aiJSON.executive_summary}`;
+                    document.getElementById('aiSummaryBox').innerHTML = `<strong><i class="fa-solid fa-robot text-orange"></i> Nexus AI:</strong> ${aiJSON.executive_summary}`;
                     executeAIIntent(aiJSON);
+                    document.getElementById('aiPrompt').value = '';
                 } else { throw new Error(result.message); }
-            } catch (error) { document.getElementById('aiSummaryBox').innerHTML = `<span class="text-danger">Error: ${error.message}</span>`; }
+            } catch (error) { 
+                document.getElementById('aiSummaryBox').innerHTML = `<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Error: ${error.message}</span>`; 
+            } finally {
+                btnSend.innerHTML = `<i class="fa-solid fa-paper-plane fs-5"></i>`;
+            }
         }
 
         function executeAIIntent(intent) {
@@ -367,25 +464,53 @@
             }
             currentProcessedData = processed;
             renderTable(currentProcessedData);
-            document.getElementById('dashTotalKPM').innerText = processed.length.toLocaleString('id-ID'); // Update visual
+            document.getElementById('dashTotalKPM').innerText = processed.length.toLocaleString('id-ID');
         }
 
+        // --- RENDER TABEL MASTER ---
         function renderTable(dataArray) {
             const head = document.getElementById('dataHead'), body = document.getElementById('dataBody');
             head.innerHTML = ''; body.innerHTML = '';
-            if (!dataArray.length) return;
+            if (!dataArray.length) {
+                body.innerHTML = `<tr><td colspan="100%" class="text-center py-4 text-muted">Data kosong.</td></tr>`;
+                return;
+            }
+            
+            // Batasi tampilan 50 baris agar browser tidak lag (data asli tetap utuh)
             const previewData = dataArray.slice(0, 50);
             const headers = Object.keys(previewData[0]).filter(h => h !== 'project_name' && h !== 'id');
-            let trHead = '<tr>'; headers.forEach(h => trHead += `<th class="text-orange">${h}</th>`); head.innerHTML = trHead + '</tr>';
+            
+            let trHead = '<tr>'; 
+            headers.forEach(h => trHead += `<th class="text-orange py-2">${h}</th>`); 
+            head.innerHTML = trHead + '</tr>';
+            
             previewData.forEach(row => {
-                let tr = '<tr>'; headers.forEach(h => tr += `<td>${row[h] || ''}</td>`); body.innerHTML += tr + '</tr>';
+                let tr = '<tr>'; 
+                headers.forEach(h => tr += `<td>${row[h] !== undefined ? row[h] : ''}</td>`); 
+                body.innerHTML += tr + '</tr>';
             });
+            
+            if(dataArray.length > 50) {
+                body.innerHTML += `<tr><td colspan="100%" class="text-center bg-dark text-muted fw-bold">... Menampilkan 50 dari ${dataArray.length.toLocaleString('id-ID')} baris. Export untuk melihat semua. ...</td></tr>`;
+            }
         }
         
+        function exportToExcel() {
+            if(!currentProcessedData.length) return;
+            const exportData = currentProcessedData.map(({id, project_name, ...rest}) => rest);
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Master_Data");
+            XLSX.writeFile(wb, `${currentProject}_Clean.xlsx`);
+        }
+
         async function clearDatabase() {
-            if(confirm("Hapus seluruh arsip laporan di perangkat ini?")) {
-                await db.masterData.clear(); await db.projectMeta.clear();
+            if(confirm("PERINGATAN! Ini akan menghapus seluruh data laporan di perangkat ini. Lanjutkan?")) {
+                await db.masterData.clear(); 
+                await db.projectMeta.clear();
+                forceCloseModal('settingsModal');
                 showPage('home');
+                showToast("Semua arsip lokal berhasil dihapus.");
             }
         }
     </script>
