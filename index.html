@@ -36,7 +36,7 @@
                 <i class="fa-solid fa-layer-group text-orange fs-3 me-2"></i>
                 <div><span class="fw-bold d-block lh-1">Nexus SDM</span><small class="text-titanium" style="font-size: 0.7rem;">Reporting Engine v3</small></div>
             </a>
-            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#settingsModal"><i class="fa-solid fa-gear"></i> Setup</button>
+            <button class="btn btn-outline-danger btn-sm" onclick="clearDatabase()"><i class="fa-solid fa-trash"></i> Reset Arsip</button>
         </div>
     </nav>
 
@@ -135,23 +135,6 @@
         </div>
     </div>
 
-    <!-- Modal Vault (Settings) -->
-    <div class="modal fade" id="settingsModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content glass-panel">
-                <div class="modal-header border-secondary"><h5 class="text-orange fw-bold"><i class="fa-solid fa-vault"></i> Setup Server Brankas</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <p class="text-muted small">Masukkan URL Google Apps Script Anda di sini. Ini akan mengaktifkan fitur Sinkronisasi Drive dan AI Analyst.</p>
-                    <input type="password" id="inputGasUrl" class="form-control bg-dark text-light border-secondary" placeholder="https://script.google.com/macros/s/.../exec">
-                </div>
-                <div class="modal-footer border-secondary">
-                    <button class="btn btn-outline-danger me-auto" onclick="clearDatabase()">Hapus Semua Arsip</button>
-                    <button class="btn btn-orange" onclick="saveSettings()">Simpan URL</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Toast Notification (Dipastikan selalu paling depan dan tidak memblokir klik) -->
     <div class="toast-container position-fixed top-0 end-0 p-4" style="z-index: 99999; pointer-events: none;">
         <div id="sysToast" class="toast glass-panel border-orange" role="alert" aria-live="assertive" aria-atomic="true" style="pointer-events: auto;">
@@ -173,6 +156,9 @@
         const db = new Dexie("NexusSDM_DB_v3");
         db.version(1).stores({ masterData: '++id, project_name', projectMeta: 'project_name, drive_link, created_at' });
 
+        // URL SERVER GAS TERTANAM (HARDCODED)
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbx3lnD4lrK3ohPhgpoN1HGGEzhFck030dfxr9JrjnmmsEwJRkIOwGIaflikWb_SipDZ/exec";
+
         let pendingFiles = [];
         let currentProcessedData = []; 
         let currentProject = "";
@@ -181,7 +167,6 @@
         let toastEl;
         window.onload = async () => {
             toastEl = new bootstrap.Toast(document.getElementById('sysToast'), { delay: 4000 });
-            document.getElementById('inputGasUrl').value = localStorage.getItem('nexus_gas_vault') || '';
             await renderHomePage();
         };
 
@@ -214,12 +199,6 @@
             } else if(pageId === 'dashboard') {
                 document.getElementById('pageDashboard').classList.add('active');
             }
-        }
-
-        function saveSettings() {
-            localStorage.setItem('nexus_gas_vault', document.getElementById('inputGasUrl').value);
-            forceCloseModal('settingsModal');
-            showToast("<i class='fa-solid fa-check'></i> URL Server Brankas berhasil disimpan!");
         }
 
         // --- SMART UPLOAD ENGINE ---
@@ -375,12 +354,6 @@
 
         // --- SINKRONISASI KE GOOGLE DRIVE ---
         async function syncReportToCloud() {
-            const gasUrl = localStorage.getItem('nexus_gas_vault');
-            if(!gasUrl) { 
-                showToast("⚠️ Anda belum memasukkan URL Server Google Apps Script!"); 
-                new bootstrap.Modal(document.getElementById('settingsModal')).show();
-                return; 
-            }
             if(!currentProcessedData.length) {
                 showToast("Data masih kosong, tidak ada yang bisa dikirim.");
                 return;
@@ -392,7 +365,7 @@
             btnSync.disabled = true;
 
             try {
-                const response = await fetch(gasUrl, {
+                const response = await fetch(GAS_URL, {
                     method: 'POST',
                     body: JSON.stringify({ action: "sync_report", project_name: currentProject, payload: currentProcessedData }),
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' }
@@ -417,9 +390,7 @@
         // --- AI ANALYST ---
         async function processWithAI() {
             const prompt = document.getElementById('aiPrompt').value;
-            const gasUrl = localStorage.getItem('nexus_gas_vault');
             if(!prompt) return;
-            if(!gasUrl) { showToast("⚠️ URL Server GAS belum diisi!"); return; }
             if(!currentProcessedData.length) return;
 
             const btnSend = document.querySelector('.chat-input').nextElementSibling;
@@ -428,7 +399,7 @@
             document.getElementById('aiSummaryBox').innerHTML = `<i class="fa-solid fa-spinner fa-spin text-orange"></i> AI sedang menganalisis perintah...`;
             
             try {
-                const response = await fetch(gasUrl, { 
+                const response = await fetch(GAS_URL, { 
                     method: 'POST', 
                     body: JSON.stringify({ action: "ask_ai", prompt: prompt }), 
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' }
@@ -508,7 +479,6 @@
             if(confirm("PERINGATAN! Ini akan menghapus seluruh data laporan di perangkat ini. Lanjutkan?")) {
                 await db.masterData.clear(); 
                 await db.projectMeta.clear();
-                forceCloseModal('settingsModal');
                 showPage('home');
                 showToast("Semua arsip lokal berhasil dihapus.");
             }
