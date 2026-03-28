@@ -4,81 +4,93 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nexus SDM v3 | Executive Dashboard</title>
+    <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS & Dexie -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
     <style>
         :root { --bg-dark: #121212; --titanium: #B0AFAA; --orange-primary: #F28C28; --glass-bg: rgba(30, 30, 30, 0.8); --glass-border: rgba(255, 255, 255, 0.1); }
-        body { background-color: var(--bg-dark); color: #E0E0E0; font-family: -apple-system, sans-serif; padding-bottom: 120px; overflow-x: hidden; }
-        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+        /* Tampilan lebih padat (font sedikit diperkecil) */
+        body { background-color: var(--bg-dark); color: #E0E0E0; font-family: -apple-system, sans-serif; padding-bottom: 100px; overflow-x: hidden; font-size: 0.9rem; }
+        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .text-orange { color: var(--orange-primary) !important; }
         .btn-orange { background-color: var(--orange-primary); color: #111; font-weight: 600; border: none; }
         .btn-orange:hover { background-color: #E07B18; }
-        .report-card { cursor: pointer; transition: transform 0.2s; border-left: 4px solid var(--orange-primary); }
+        
+        /* Kartu Laporan Compact */
+        .report-card { cursor: pointer; transition: transform 0.2s; border-left: 3px solid var(--orange-primary); padding: 12px !important; position: relative; }
         .report-card:hover { transform: translateY(-3px); background-color: rgba(242, 140, 40, 0.1); }
-        .floating-action-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 800px; z-index: 1000; padding: 10px; display: flex; align-items: center; gap: 10px; }
-        .chat-input { flex-grow: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); color: #fff; border-radius: 20px; padding: 12px 20px; }
+        .btn-delete-card { position: absolute; top: 8px; right: 8px; z-index: 5; padding: 2px 6px; font-size: 0.75rem; border-radius: 6px; }
+        
+        /* Tabel & Floating Bar */
+        .table { font-size: 0.85rem; }
+        .floating-action-bar { position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); width: 95%; max-width: 700px; z-index: 1000; padding: 8px; display: flex; align-items: center; gap: 8px; border-radius: 20px; }
+        .chat-input { flex-grow: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); color: #fff; border-radius: 20px; padding: 10px 16px; font-size: 0.9rem; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
-        .page-view { display: none; animation: fadeIn 0.4s; }
+        
+        /* Animasi Transisi Halaman */
+        .page-view { display: none; animation: fadeIn 0.3s; }
         .page-view.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* Memastikan tabel tidak terpotong */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         th, td { white-space: nowrap; }
     </style>
 </head>
 <body>
 
-    <!-- Header -->
-    <nav class="navbar navbar-dark glass-panel m-3 sticky-top" style="z-index: 1020;">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="#" onclick="showPage('home')" style="cursor: pointer;">
-                <i class="fa-solid fa-layer-group text-orange fs-3 me-2"></i>
-                <div><span class="fw-bold d-block lh-1">Nexus SDM</span><small class="text-titanium" style="font-size: 0.7rem;">Reporting Engine v3</small></div>
+    <!-- Header Navbar -->
+    <nav class="navbar navbar-dark glass-panel mx-3 mt-3 mb-4 sticky-top" style="z-index: 1020; padding: 8px 16px;">
+        <div class="container-fluid p-0">
+            <a class="navbar-brand d-flex align-items-center m-0" href="#" onclick="showPage('home')" style="cursor: pointer;">
+                <i class="fa-solid fa-layer-group text-orange fs-4 me-2"></i>
+                <div><span class="fw-bold d-block lh-1" style="font-size: 1rem;">Nexus SDM</span><small class="text-titanium" style="font-size: 0.65rem;">Compact Edition</small></div>
             </a>
-            <button class="btn btn-outline-danger btn-sm" onclick="clearDatabase()"><i class="fa-solid fa-trash"></i> Reset Arsip</button>
+            <button class="btn btn-outline-danger btn-sm" onclick="clearAllDatabase()" title="Hapus Semua Data Lokal"><i class="fa-solid fa-dumpster"></i> Reset Semua</button>
         </div>
     </nav>
 
     <!-- HALAMAN 1: HOME (Daftar Laporan) -->
-    <div id="pageHome" class="container-fluid px-4 mt-4 page-view active">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="text-light m-0"><i class="fa-solid fa-folder-tree text-orange"></i> Arsip Laporan Data</h4>
-            <span class="badge bg-dark border border-secondary p-2">Total: <span id="totalArsipCount">0</span> Dokumen</span>
+    <div id="pageHome" class="container-fluid px-4 page-view active">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="text-light m-0"><i class="fa-solid fa-folder-tree text-orange"></i> Arsip Laporan</h5>
+            <span class="badge bg-dark border border-secondary">Total: <span id="totalArsipCount">0</span> Dokumen</span>
         </div>
         
-        <div class="row g-3" id="reportListArea">
-            <div class="col-12 text-center py-5 text-muted"><i class="fa-solid fa-inbox fs-1 mb-3"></i><br>Belum ada data. Silakan unggah file Excel di bawah.</div>
+        <div class="row g-2" id="reportListArea">
+            <!-- Kartu di-render lewat JS -->
+            <div class="col-12 text-center py-5 text-muted"><i class="fa-solid fa-inbox fs-1 mb-3"></i><br>Belum ada data.</div>
         </div>
     </div>
 
     <!-- HALAMAN 2: DASHBOARD DETAIL -->
-    <div id="pageDashboard" class="container-fluid px-4 mt-4 page-view">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+    <div id="pageDashboard" class="container-fluid px-4 page-view">
+        <div class="d-flex justify-content-between align-items-center mb-3">
             <button class="btn btn-sm btn-outline-light" onclick="showPage('home')"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
-            <h4 class="text-orange mb-0 fw-bold" id="dashTitle">Nama Proyek</h4>
+            <h5 class="text-orange mb-0 fw-bold text-truncate mx-2" id="dashTitle" style="max-width: 50%;">Nama Proyek</h5>
             <div>
-                <button class="btn btn-sm btn-outline-primary me-2" id="btnDriveLink" style="display:none;" target="_blank"><i class="fa-brands fa-google-drive"></i> Buka Drive</button>
-                <button class="btn btn-sm btn-orange" id="btnSyncReport" onclick="syncReportToCloud()"><i class="fa-solid fa-cloud-arrow-up"></i> Jadikan Laporan Resmi</button>
+                <button class="btn btn-sm btn-outline-primary me-2" id="btnDriveLink" style="display:none;" target="_blank"><i class="fa-brands fa-google-drive"></i> Drive</button>
+                <button class="btn btn-sm btn-orange" id="btnSyncReport" onclick="syncReportToCloud()"><i class="fa-solid fa-cloud-arrow-up"></i> Sync Resmi</button>
             </div>
         </div>
 
-        <div class="row g-4 mb-4">
+        <div class="row g-3 mb-3">
             <!-- Widget Total -->
             <div class="col-md-3">
-                <div class="glass-panel p-4 text-center h-100 d-flex flex-column justify-content-center">
-                    <h6 class="text-muted text-uppercase mb-2">Total Penerima</h6>
-                    <h1 class="fw-bold text-light m-0" id="dashTotalKPM">0</h1>
-                    <small class="text-success mt-2" id="dashSyncStatus"><i class="fa-solid fa-check-circle"></i> Data Tersedia</small>
+                <div class="glass-panel p-3 text-center h-100 d-flex flex-column justify-content-center">
+                    <span class="text-muted text-uppercase" style="font-size: 0.75rem;">Total Penerima</span>
+                    <h2 class="fw-bold text-light m-0" id="dashTotalKPM">0</h2>
+                    <small class="text-success mt-1" id="dashSyncStatus" style="font-size: 0.75rem;"><i class="fa-solid fa-check-circle"></i> Data Tersedia</small>
                 </div>
             </div>
             <!-- Widget Geospasial -->
             <div class="col-md-9">
-                <div class="glass-panel p-4 h-100">
-                    <h6 class="text-orange mb-3"><i class="fa-solid fa-map-location-dot"></i> Rincian Per Kecamatan</h6>
-                    <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
-                        <table class="table table-dark table-sm table-hover align-middle">
-                            <thead style="position: sticky; top: 0; background: #1e1e1e;">
+                <div class="glass-panel p-3 h-100">
+                    <h6 class="text-orange mb-2" style="font-size: 0.9rem;"><i class="fa-solid fa-map-location-dot"></i> Rincian Per Kecamatan</h6>
+                    <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                        <table class="table table-dark table-sm table-hover align-middle mb-0">
+                            <thead style="position: sticky; top: 0; background: #1e1e1e; z-index: 1;">
                                 <tr><th>Kecamatan</th><th class="text-end">Jumlah KPM</th></tr>
                             </thead>
                             <tbody id="kecamatanBody"></tbody>
@@ -89,20 +101,20 @@
         </div>
 
         <!-- AI Panel -->
-        <div class="glass-panel p-4 mb-4">
-            <h5 class="text-orange mb-3"><i class="fa-solid fa-robot"></i> Analisis AI</h5>
-            <div id="aiSummaryBox" class="text-light small"><span class="text-muted">Ketik instruksi di kotak obrolan bawah untuk memfilter data...</span></div>
+        <div class="glass-panel p-3 mb-3">
+            <h6 class="text-orange mb-2"><i class="fa-solid fa-robot"></i> Analisis AI</h6>
+            <div id="aiSummaryBox" class="text-light" style="font-size: 0.85rem;"><span class="text-muted">Ketik instruksi di kotak obrolan bawah untuk memfilter data...</span></div>
         </div>
 
         <!-- Master Data Table -->
-        <div class="glass-panel p-4 mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0"><i class="fa-solid fa-table text-orange"></i> Pratinjau Dataset</h5>
-                <button class="btn btn-sm btn-outline-light" onclick="exportToExcel()"><i class="fa-solid fa-file-excel text-success"></i> Download Lokal (XLSX)</button>
+        <div class="glass-panel p-3 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0"><i class="fa-solid fa-table text-orange"></i> Pratinjau Dataset</h6>
+                <button class="btn btn-sm btn-outline-light" style="font-size: 0.8rem;" onclick="exportToExcel()"><i class="fa-solid fa-file-excel text-success"></i> Download XLSX</button>
             </div>
-            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                <table class="table table-dark table-sm table-striped table-bordered border-secondary">
-                    <thead id="dataHead" style="position: sticky; top: 0; background: #2A2A2C; box-shadow: 0 2px 5px rgba(0,0,0,0.5);"></thead>
+            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                <table class="table table-dark table-sm table-striped table-bordered border-secondary mb-0">
+                    <thead id="dataHead" style="position: sticky; top: 0; background: #2A2A2C; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 1;"></thead>
                     <tbody id="dataBody"></tbody>
                 </table>
             </div>
@@ -112,38 +124,38 @@
     <!-- Floating Action Bar -->
     <div class="floating-action-bar glass-panel shadow-lg">
         <input type="file" id="excelFile" class="sr-only" accept=".xlsx, .xls, .csv" multiple onchange="prepareUpload(event)">
-        <label for="excelFile" class="btn btn-outline-secondary rounded-circle p-3 mb-0" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-            <i class="fa-solid fa-plus fs-5 text-light"></i>
+        <label for="excelFile" class="btn btn-outline-secondary rounded-circle p-2 mb-0" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <i class="fa-solid fa-plus fs-6 text-light"></i>
         </label>
-        <input type="text" id="aiPrompt" class="form-control chat-input" placeholder="Tanya AI: 'Tampilkan hanya Kecamatan X...'" onkeypress="if(event.key === 'Enter') processWithAI()">
-        <button class="btn btn-orange rounded-circle p-3" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;" onclick="processWithAI()"><i class="fa-solid fa-paper-plane fs-5"></i></button>
+        <input type="text" id="aiPrompt" class="form-control chat-input" placeholder="Tanya AI: 'Hapus data ganda...'" onkeypress="if(event.key === 'Enter') processWithAI()">
+        <button class="btn btn-orange rounded-circle p-2" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;" onclick="processWithAI()"><i class="fa-solid fa-paper-plane fs-6"></i></button>
     </div>
 
     <!-- Modal Upload -->
     <div class="modal fade" id="uploadModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
             <div class="modal-content glass-panel">
-                <div class="modal-header border-secondary"><h5 class="text-orange fw-bold">Unggah Laporan</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <p class="text-muted small">Menemukan <strong id="fileCount" class="text-light">0</strong> file Excel. Sistem akan otomatis membersihkan Kop Surat dan Pivot yang rusak.</p>
-                    <input type="text" id="inputProjectName" class="form-control bg-dark text-light border-secondary" placeholder="Contoh: BNBA PKH Tahap 1 2026">
+                <div class="modal-header border-secondary py-2"><h6 class="text-orange fw-bold m-0">Unggah Laporan</h6><button type="button" class="btn-close btn-close-white" style="font-size: 0.7rem;" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body py-3">
+                    <p class="text-muted mb-2" style="font-size: 0.8rem;">Menemukan <strong id="fileCount" class="text-light">0</strong> file. AI akan mengekstrak otomatis.</p>
+                    <input type="text" id="inputProjectName" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Nama Laporan (Contoh: PKH Tahap 1)">
                 </div>
-                <div class="modal-footer border-secondary">
-                    <button class="btn btn-orange w-100" id="btnExtract" onclick="executeSmartUpload()">Mulai Ekstrak Data</button>
+                <div class="modal-footer border-secondary py-2">
+                    <button class="btn btn-sm btn-orange w-100" id="btnExtract" onclick="executeSmartUpload()">Mulai Ekstrak Data</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Toast Notification (Dipastikan selalu paling depan dan tidak memblokir klik) -->
-    <div class="toast-container position-fixed top-0 end-0 p-4" style="z-index: 99999; pointer-events: none;">
+    <!-- Toast Notification -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 99999; pointer-events: none;">
         <div id="sysToast" class="toast glass-panel border-orange" role="alert" aria-live="assertive" aria-atomic="true" style="pointer-events: auto;">
-            <div class="toast-header bg-transparent text-light border-secondary">
+            <div class="toast-header bg-transparent text-light border-secondary py-1">
                 <i class="fa-solid fa-bell text-orange me-2"></i>
-                <strong class="me-auto text-orange">Sistem Nexus</strong>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                <strong class="me-auto text-orange" style="font-size: 0.85rem;">Sistem Nexus</strong>
+                <button type="button" class="btn-close btn-close-white" style="font-size: 0.7rem;" data-bs-dismiss="toast"></button>
             </div>
-            <div class="toast-body text-light fw-bold" id="toastMsg" style="font-size: 1.05rem;"></div>
+            <div class="toast-body text-light fw-bold" id="toastMsg" style="font-size: 0.9rem;"></div>
         </div>
     </div>
 
@@ -163,10 +175,9 @@
         let currentProcessedData = []; 
         let currentProject = "";
         
-        // Setup Notifikasi Pintar
         let toastEl;
         window.onload = async () => {
-            toastEl = new bootstrap.Toast(document.getElementById('sysToast'), { delay: 4000 });
+            toastEl = new bootstrap.Toast(document.getElementById('sysToast'), { delay: 3500 });
             await renderHomePage();
         };
 
@@ -175,22 +186,19 @@
             toastEl.show(); 
         }
 
-        // FUNGSI PENGHANCUR KACA PELINDUNG (ANTI-FREEZE MODAL BUG)
+        // Penghancur Kaca Pelindung Modal
         function forceCloseModal(modalId) {
             try {
                 const modalElement = document.getElementById(modalId);
                 const modalInstance = bootstrap.Modal.getInstance(modalElement);
                 if (modalInstance) modalInstance.hide();
-                
-                // Sapu bersih sisa backdrop yang menyangkut secara paksa
                 document.querySelectorAll('.modal-backdrop').forEach(bd => bd.remove());
                 document.body.classList.remove('modal-open');
                 document.body.style.overflow = '';
                 document.body.style.paddingRight = '';
-            } catch(e) { console.error("Modal fix error:", e); }
+            } catch(e) {}
         }
 
-        // Navigasi Halaman
         function showPage(pageId) {
             document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
             if(pageId === 'home') {
@@ -213,14 +221,12 @@
             const btnExt = document.getElementById('btnExtract');
             const projName = document.getElementById('inputProjectName').value.trim() || `Laporan_${Date.now()}`;
             
-            btnExt.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyiapkan...`;
+            btnExt.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Ekstrak...`;
             btnExt.disabled = true;
 
-            // 1. Hancurkan pop-up dulu agar layar tidak membeku
             forceCloseModal('uploadModal');
-            showToast(`<i class="fa-solid fa-gear fa-spin"></i> Memulai ekstraksi data tingkat lanjut...`);
+            showToast(`<i class="fa-solid fa-gear fa-spin"></i> Memulai ekstraksi data...`);
 
-            // 2. Beri jeda sistem 200ms agar animasi layar normal dulu sebelum dihajar file besar
             setTimeout(async () => {
                 try {
                     let allMergedData = [];
@@ -234,7 +240,6 @@
                             if(rawAoa.length === 0) continue;
 
                             let headerRowIdx = 0;
-                            // Cari Header Asli (Baris yang punya minimal 4 kolom berteks)
                             for(let i=0; i < Math.min(30, rawAoa.length); i++) {
                                 let textCells = rawAoa[i].filter(c => typeof c === 'string' && c.trim().length > 1).length;
                                 if(textCells >= 4) { headerRowIdx = i; break; }
@@ -263,10 +268,10 @@
                         showToast(`<i class="fa-solid fa-check text-success"></i> Sukses menyatukan ${allMergedData.length} data.`);
                         openDashboard(projName);
                     } else {
-                        showToast("<i class='fa-solid fa-triangle-exclamation'></i> Gagal menemukan pola tabel yang benar.");
+                        showToast("<i class='fa-solid fa-triangle-exclamation text-danger'></i> Gagal menemukan pola tabel.");
                     }
                 } catch (err) {
-                    showToast(`Error Pembacaan: ${err.message}`);
+                    showToast(`Error: ${err.message}`);
                 } finally {
                     pendingFiles = [];
                     document.getElementById('excelFile').value = ''; 
@@ -276,7 +281,7 @@
             }, 200);
         }
 
-        // --- RENDER HALAMAN HOME ---
+        // --- RENDER HALAMAN HOME (COMPACT) ---
         async function renderHomePage() {
             const metaData = await db.projectMeta.toArray();
             document.getElementById('totalArsipCount').innerText = metaData.length;
@@ -291,20 +296,45 @@
             for(let meta of metaData.reverse()) {
                 const count = await db.masterData.where('project_name').equals(meta.project_name).count();
                 const date = new Date(meta.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
-                const isSynced = meta.drive_link ? `<span class="badge bg-success bg-opacity-25 text-success ms-2"><i class="fa-solid fa-cloud-check"></i> Tersimpan di Drive</span>` : '';
+                const isSynced = meta.drive_link ? `<span class="badge bg-success bg-opacity-25 text-success ms-1 p-1" style="font-size:0.6rem;"><i class="fa-solid fa-cloud-check"></i> Tersimpan</span>` : '';
                 
+                // Gunakan col-lg-3 col-md-4 col-sm-6 agar memuat lebih banyak kartu dalam 1 baris
                 container.innerHTML += `
-                <div class="col-md-4">
-                    <div class="glass-panel p-3 report-card h-100 d-flex flex-column justify-content-between" onclick="openDashboard('${meta.project_name}')">
+                <div class="col-lg-3 col-md-4 col-sm-6">
+                    <div class="glass-panel report-card d-flex flex-column justify-content-between" onclick="openDashboard('${meta.project_name}')">
+                        <!-- Tombol Hapus Spesifik Card -->
+                        <button class="btn btn-outline-danger btn-delete-card" onclick="event.stopPropagation(); deleteSpecificProject('${meta.project_name}')" title="Hapus Laporan Ini">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                        
                         <div>
-                            <h5 class="text-light mb-1 fw-bold">${meta.project_name}</h5>
-                            <small class="text-muted"><i class="fa-regular fa-calendar"></i> ${date} ${isSynced}</small>
+                            <h6 class="text-light mb-1 fw-bold text-truncate pe-4" title="${meta.project_name}">${meta.project_name}</h6>
+                            <small class="text-muted" style="font-size: 0.7rem;"><i class="fa-regular fa-calendar"></i> ${date} ${isSynced}</small>
                         </div>
-                        <div class="mt-3">
-                            <h3 class="text-orange m-0 fw-bold">${count.toLocaleString('id-ID')} <small class="text-muted fs-6 fw-normal">KPM</small></h3>
+                        <div class="mt-2">
+                            <h4 class="text-orange m-0 fw-bold">${count.toLocaleString('id-ID')} <small class="text-muted fw-normal" style="font-size: 0.7rem;">KPM</small></h4>
                         </div>
                     </div>
                 </div>`;
+            }
+        }
+
+        // --- HAPUS SPESIFIK & HAPUS SEMUA ---
+        async function deleteSpecificProject(projName) {
+            if(confirm(`Yakin ingin menghapus laporan "${projName}"?`)) {
+                await db.masterData.where('project_name').equals(projName).delete();
+                await db.projectMeta.delete(projName);
+                showToast(`Laporan "${projName}" berhasil dihapus.`);
+                renderHomePage();
+            }
+        }
+
+        async function clearAllDatabase() {
+            if(confirm("PERINGATAN! Ini akan menghapus SELURUH data arsip. Lanjutkan?")) {
+                await db.masterData.clear(); 
+                await db.projectMeta.clear();
+                renderHomePage();
+                showToast("Semua arsip lokal berhasil dibersihkan.");
             }
         }
 
@@ -317,24 +347,22 @@
             currentProcessedData = data;
             document.getElementById('dashTotalKPM').innerText = data.length.toLocaleString('id-ID');
 
-            // Cek status Sinkronisasi Drive
             const meta = await db.projectMeta.get(projName);
             const btnDrive = document.getElementById('btnDriveLink');
             if(meta && meta.drive_link) {
                 btnDrive.style.display = 'inline-block';
                 btnDrive.onclick = () => window.open(meta.drive_link, '_blank');
-                document.getElementById('dashSyncStatus').innerHTML = `<i class="fa-solid fa-cloud-check text-success"></i> Sinkron Google Drive`;
+                document.getElementById('dashSyncStatus').innerHTML = `<i class="fa-solid fa-cloud-check text-success"></i> Sync Drive`;
             } else {
                 btnDrive.style.display = 'none';
-                document.getElementById('dashSyncStatus').innerHTML = `<i class="fa-solid fa-hard-drive text-warning"></i> Tersimpan Lokal`;
+                document.getElementById('dashSyncStatus').innerHTML = `<i class="fa-solid fa-hard-drive text-warning"></i> Arsip Lokal`;
             }
 
-            // Agregasi Geospasial
             let kecamatanCol = Object.keys(data[0] || {}).find(k => k.includes('KECAMATAN') || k.includes('KEC'));
             const tbody = document.getElementById('kecamatanBody');
             if(kecamatanCol) {
                 const countMap = data.reduce((acc, row) => {
-                    let loc = row[kecamatanCol] || 'TIDAK DIKETAHUI';
+                    let loc = row[kecamatanCol] || 'LAINNYA';
                     acc[loc] = (acc[loc] || 0) + 1;
                     return acc;
                 }, {});
@@ -345,7 +373,7 @@
                     tbody.innerHTML += `<tr><td class="text-light">${kec}</td><td class="text-end fw-bold text-orange">${count.toLocaleString('id-ID')}</td></tr>`;
                 });
             } else {
-                tbody.innerHTML = `<tr><td colspan="2" class="text-warning text-center py-3"><i class="fa-solid fa-circle-exclamation"></i> Kolom Kecamatan tidak terdeteksi.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="2" class="text-warning text-center py-2"><i class="fa-solid fa-circle-exclamation"></i> Kolom Kecamatan tidak ada.</td></tr>`;
             }
             
             renderTable(data);
@@ -361,7 +389,7 @@
             
             const btnSync = document.getElementById('btnSyncReport');
             const originalText = btnSync.innerHTML;
-            btnSync.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyinkronkan...`;
+            btnSync.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sync...`;
             btnSync.disabled = true;
 
             try {
@@ -373,7 +401,7 @@
                 const result = await response.json();
                 
                 if(result.status === 'success') {
-                    showToast(`<i class="fa-solid fa-circle-check text-success"></i> ${result.message}`);
+                    showToast(`<i class="fa-solid fa-circle-check text-success"></i> Laporan Resmi Tersimpan!`);
                     await db.projectMeta.update(currentProject, {drive_link: result.link});
                     openDashboard(currentProject); 
                 } else { 
@@ -396,7 +424,7 @@
             const btnSend = document.querySelector('.chat-input').nextElementSibling;
             btnSend.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i>`;
 
-            document.getElementById('aiSummaryBox').innerHTML = `<i class="fa-solid fa-spinner fa-spin text-orange"></i> AI sedang menganalisis perintah...`;
+            document.getElementById('aiSummaryBox').innerHTML = `<i class="fa-solid fa-spinner fa-spin text-orange"></i> AI Menganalisis...`;
             
             try {
                 const response = await fetch(GAS_URL, { 
@@ -414,7 +442,7 @@
             } catch (error) { 
                 document.getElementById('aiSummaryBox').innerHTML = `<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Error: ${error.message}</span>`; 
             } finally {
-                btnSend.innerHTML = `<i class="fa-solid fa-paper-plane fs-5"></i>`;
+                btnSend.innerHTML = `<i class="fa-solid fa-paper-plane fs-6"></i>`;
             }
         }
 
@@ -443,26 +471,25 @@
             const head = document.getElementById('dataHead'), body = document.getElementById('dataBody');
             head.innerHTML = ''; body.innerHTML = '';
             if (!dataArray.length) {
-                body.innerHTML = `<tr><td colspan="100%" class="text-center py-4 text-muted">Data kosong.</td></tr>`;
+                body.innerHTML = `<tr><td colspan="100%" class="text-center py-3 text-muted">Data kosong.</td></tr>`;
                 return;
             }
             
-            // Batasi tampilan 50 baris agar browser tidak lag (data asli tetap utuh)
             const previewData = dataArray.slice(0, 50);
             const headers = Object.keys(previewData[0]).filter(h => h !== 'project_name' && h !== 'id');
             
             let trHead = '<tr>'; 
-            headers.forEach(h => trHead += `<th class="text-orange py-2">${h}</th>`); 
+            headers.forEach(h => trHead += `<th class="text-orange py-2 px-3">${h}</th>`); 
             head.innerHTML = trHead + '</tr>';
             
             previewData.forEach(row => {
                 let tr = '<tr>'; 
-                headers.forEach(h => tr += `<td>${row[h] !== undefined ? row[h] : ''}</td>`); 
+                headers.forEach(h => tr += `<td class="px-3 py-1">${row[h] !== undefined ? row[h] : ''}</td>`); 
                 body.innerHTML += tr + '</tr>';
             });
             
             if(dataArray.length > 50) {
-                body.innerHTML += `<tr><td colspan="100%" class="text-center bg-dark text-muted fw-bold">... Menampilkan 50 dari ${dataArray.length.toLocaleString('id-ID')} baris. Export untuk melihat semua. ...</td></tr>`;
+                body.innerHTML += `<tr><td colspan="100%" class="text-center bg-dark text-muted fw-bold py-2">... Menampilkan 50 dari ${dataArray.length.toLocaleString('id-ID')} baris ...</td></tr>`;
             }
         }
         
@@ -473,15 +500,6 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Master_Data");
             XLSX.writeFile(wb, `${currentProject}_Clean.xlsx`);
-        }
-
-        async function clearDatabase() {
-            if(confirm("PERINGATAN! Ini akan menghapus seluruh data laporan di perangkat ini. Lanjutkan?")) {
-                await db.masterData.clear(); 
-                await db.projectMeta.clear();
-                showPage('home');
-                showToast("Semua arsip lokal berhasil dihapus.");
-            }
         }
     </script>
 </body>
