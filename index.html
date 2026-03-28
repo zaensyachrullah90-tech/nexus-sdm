@@ -47,7 +47,10 @@
                 <i class="fa-solid fa-layer-group text-orange fs-4 me-2"></i>
                 <div><span class="fw-bold d-block lh-1" style="font-size: 1rem;">Nexus SDM</span><small class="text-titanium" style="font-size: 0.65rem;">Dynamic Engine</small></div>
             </a>
-            <button class="btn btn-outline-danger btn-sm" onclick="clearAllDatabase()" title="Hapus Semua Data Lokal"><i class="fa-solid fa-dumpster"></i> Reset Semua</button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-warning btn-sm" onclick="changeGasUrl()" title="Ubah URL GAS jika server berubah"><i class="fa-solid fa-link"></i> Link GAS</button>
+                <button class="btn btn-outline-danger btn-sm" onclick="clearAllDatabase()" title="Hapus Semua Data Lokal"><i class="fa-solid fa-dumpster"></i> Reset</button>
+            </div>
         </div>
     </nav>
 
@@ -168,8 +171,11 @@
         const db = new Dexie("NexusSDM_DB_v3");
         db.version(1).stores({ masterData: '++id, project_name', projectMeta: 'project_name, drive_link, created_at' });
 
-        // URL SERVER GAS TERTANAM (HARDCODED)
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbx3lnD4lrK3ohPhgpoN1HGGEzhFck030dfxr9JrjnmmsEwJRkIOwGIaflikWb_SipDZ/exec";
+        // URL DEFAULT TERBARU DARI GOOGLE APPS SCRIPT
+        const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbxAdBUVsdEjsM7h_lcECIsusMfhJx6uJBJNwlSkm8-BCbQMZHyiiaOLdRpAUBK3AEXI/exec";
+        
+        // Logika Dinamis: Gunakan URL dari LocalStorage JIKA ADA, jika tidak gunakan URL bawaan (Tertanam)
+        let GAS_URL = localStorage.getItem('nexus_dynamic_gas') || DEFAULT_GAS_URL;
 
         let pendingFiles = [];
         let currentProcessedData = []; 
@@ -184,6 +190,22 @@
         function showToast(msg) { 
             document.getElementById('toastMsg').innerHTML = msg; 
             toastEl.show(); 
+        }
+
+        // FUNGSI MENGUBAH URL GAS SECARA DINAMIS
+        function changeGasUrl() {
+            let newUrl = prompt("URL Google Apps Script Saat Ini:\n(Kosongkan lalu klik OK untuk mereset ke URL bawaan)", GAS_URL);
+            if (newUrl !== null) {
+                if (newUrl.trim() === "") {
+                    localStorage.removeItem('nexus_dynamic_gas');
+                    GAS_URL = DEFAULT_GAS_URL;
+                    showToast("<i class='fa-solid fa-rotate-left'></i> URL Server dikembalikan ke bawaan awal.");
+                } else {
+                    localStorage.setItem('nexus_dynamic_gas', newUrl.trim());
+                    GAS_URL = newUrl.trim();
+                    showToast("<i class='fa-solid fa-link'></i> URL Server berhasil diperbarui!");
+                }
+            }
         }
 
         // Penghancur Kaca Pelindung Modal
