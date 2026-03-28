@@ -45,7 +45,7 @@
         <div class="container-fluid p-0">
             <a class="navbar-brand d-flex align-items-center m-0" href="#" onclick="showPage('home')" style="cursor: pointer;">
                 <i class="fa-solid fa-layer-group text-orange fs-4 me-2"></i>
-                <div><span class="fw-bold d-block lh-1" style="font-size: 1rem;">Nexus SDM</span><small class="text-titanium" style="font-size: 0.65rem;">Compact Edition</small></div>
+                <div><span class="fw-bold d-block lh-1" style="font-size: 1rem;">Nexus SDM</span><small class="text-titanium" style="font-size: 0.65rem;">Dynamic Engine</small></div>
             </a>
             <button class="btn btn-outline-danger btn-sm" onclick="clearAllDatabase()" title="Hapus Semua Data Lokal"><i class="fa-solid fa-dumpster"></i> Reset Semua</button>
         </div>
@@ -79,19 +79,19 @@
             <!-- Widget Total -->
             <div class="col-md-3">
                 <div class="glass-panel p-3 text-center h-100 d-flex flex-column justify-content-center">
-                    <span class="text-muted text-uppercase" style="font-size: 0.75rem;">Total Penerima</span>
+                    <span class="text-muted text-uppercase" style="font-size: 0.75rem;">Total Data</span>
                     <h2 class="fw-bold text-light m-0" id="dashTotalKPM">0</h2>
                     <small class="text-success mt-1" id="dashSyncStatus" style="font-size: 0.75rem;"><i class="fa-solid fa-check-circle"></i> Data Tersedia</small>
                 </div>
             </div>
-            <!-- Widget Geospasial -->
+            <!-- Widget Geospasial / Dinamis -->
             <div class="col-md-9">
                 <div class="glass-panel p-3 h-100">
-                    <h6 class="text-orange mb-2" style="font-size: 0.9rem;"><i class="fa-solid fa-map-location-dot"></i> Rincian Per Kecamatan</h6>
+                    <h6 class="text-orange mb-2" style="font-size: 0.9rem;"><i class="fa-solid fa-chart-pie"></i> Agregasi Data: <span id="aggregationLabel" class="text-light">Otomatis</span></h6>
                     <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
                         <table class="table table-dark table-sm table-hover align-middle mb-0">
                             <thead style="position: sticky; top: 0; background: #1e1e1e; z-index: 1;">
-                                <tr><th>Kecamatan</th><th class="text-end">Jumlah KPM</th></tr>
+                                <tr><th id="thAgregasi">Kategori</th><th class="text-end">Jumlah</th></tr>
                             </thead>
                             <tbody id="kecamatanBody"></tbody>
                         </table>
@@ -109,7 +109,7 @@
         <!-- Master Data Table -->
         <div class="glass-panel p-3 mb-4">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0"><i class="fa-solid fa-table text-orange"></i> Pratinjau Dataset</h6>
+                <h6 class="mb-0"><i class="fa-solid fa-table text-orange"></i> Pratinjau Dataset Terpadu</h6>
                 <button class="btn btn-sm btn-outline-light" style="font-size: 0.8rem;" onclick="exportToExcel()"><i class="fa-solid fa-file-excel text-success"></i> Download XLSX</button>
             </div>
             <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
@@ -135,13 +135,13 @@
     <div class="modal fade" id="uploadModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-sm modal-dialog-centered">
             <div class="modal-content glass-panel">
-                <div class="modal-header border-secondary py-2"><h6 class="text-orange fw-bold m-0">Unggah Laporan</h6><button type="button" class="btn-close btn-close-white" style="font-size: 0.7rem;" data-bs-dismiss="modal"></button></div>
+                <div class="modal-header border-secondary py-2"><h6 class="text-orange fw-bold m-0">Unggah Data</h6><button type="button" class="btn-close btn-close-white" style="font-size: 0.7rem;" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body py-3">
                     <p class="text-muted mb-2" style="font-size: 0.8rem;">Menemukan <strong id="fileCount" class="text-light">0</strong> file. AI akan mengekstrak otomatis.</p>
-                    <input type="text" id="inputProjectName" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Nama Laporan (Contoh: PKH Tahap 1)">
+                    <input type="text" id="inputProjectName" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Nama Proyek Data Baru...">
                 </div>
                 <div class="modal-footer border-secondary py-2">
-                    <button class="btn btn-sm btn-orange w-100" id="btnExtract" onclick="executeSmartUpload()">Mulai Ekstrak Data</button>
+                    <button class="btn btn-sm btn-orange w-100" id="btnExtract" onclick="executeSmartUpload()">Ekstrak & Gabungkan</button>
                 </div>
             </div>
         </div>
@@ -177,7 +177,7 @@
         
         let toastEl;
         window.onload = async () => {
-            toastEl = new bootstrap.Toast(document.getElementById('sysToast'), { delay: 3500 });
+            toastEl = new bootstrap.Toast(document.getElementById('sysToast'), { delay: 4500 });
             await renderHomePage();
         };
 
@@ -209,7 +209,7 @@
             }
         }
 
-        // --- SMART UPLOAD ENGINE ---
+        // --- SMART UPLOAD ENGINE (Bisa Semua Jenis Data + Pelacak Sumber) ---
         function prepareUpload(event) {
             pendingFiles = Array.from(event.target.files);
             if(pendingFiles.length === 0) return;
@@ -219,18 +219,19 @@
 
         async function executeSmartUpload() {
             const btnExt = document.getElementById('btnExtract');
-            const projName = document.getElementById('inputProjectName').value.trim() || `Laporan_${Date.now()}`;
+            const projName = document.getElementById('inputProjectName').value.trim() || `Dataset_${Date.now()}`;
             
-            btnExt.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Ekstrak...`;
+            btnExt.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Mengekstrak...`;
             btnExt.disabled = true;
 
             forceCloseModal('uploadModal');
-            showToast(`<i class="fa-solid fa-gear fa-spin"></i> Memulai ekstraksi data...`);
+            showToast(`<i class="fa-solid fa-gear fa-spin"></i> Menyatukan data lintas file...`);
 
             setTimeout(async () => {
                 try {
                     let allMergedData = [];
                     for (let file of pendingFiles) {
+                        const fileName = file.name;
                         const data = await file.arrayBuffer();
                         const workbook = XLSX.read(data, {type: 'array'});
                         
@@ -240,17 +241,24 @@
                             if(rawAoa.length === 0) continue;
 
                             let headerRowIdx = 0;
-                            for(let i=0; i < Math.min(30, rawAoa.length); i++) {
+                            // Turunkan threshold menjadi 2 cell teks agar bisa mendeteksi Pivot/Tabel sederhana
+                            for(let i=0; i < Math.min(50, rawAoa.length); i++) {
                                 let textCells = rawAoa[i].filter(c => typeof c === 'string' && c.trim().length > 1).length;
-                                if(textCells >= 4) { headerRowIdx = i; break; }
+                                if(textCells >= 2) { headerRowIdx = i; break; }
                             }
 
                             const rawJson = XLSX.utils.sheet_to_json(worksheet, {range: headerRowIdx, defval: ""});
                             rawJson.forEach(row => {
-                                let normalizedRow = { project_name: projName };
+                                let normalizedRow = { 
+                                    project_name: projName,
+                                    SUMBER_FILE: fileName, // Lacak Asal File
+                                    SUMBER_SHEET: sheetName // Lacak Asal Sheet
+                                };
                                 let hasData = false;
+                                
                                 for (let key in row) {
-                                    let cleanKey = key.toString().toUpperCase().trim().replace(/\s+/g, '_');
+                                    // Normalisasi header agar tidak acak-acakan
+                                    let cleanKey = key.toString().toUpperCase().trim().replace(/[\r\n]+/g, " ").replace(/\s+/g, '_');
                                     let cellVal = row[key];
                                     if(cleanKey && !cleanKey.includes('__EMPTY') && cellVal !== "") {
                                         normalizedRow[cleanKey] = cellVal;
@@ -265,10 +273,10 @@
                     if (allMergedData.length > 0) {
                         await db.masterData.bulkAdd(allMergedData);
                         await db.projectMeta.put({project_name: projName, created_at: new Date().toISOString(), drive_link: ""});
-                        showToast(`<i class="fa-solid fa-check text-success"></i> Sukses menyatukan ${allMergedData.length} data.`);
+                        showToast(`<i class="fa-solid fa-check text-success"></i> Sukses menyatukan ${allMergedData.length} baris dari berbagai sumber.`);
                         openDashboard(projName);
                     } else {
-                        showToast("<i class='fa-solid fa-triangle-exclamation text-danger'></i> Gagal menemukan pola tabel.");
+                        showToast("<i class='fa-solid fa-triangle-exclamation text-danger'></i> Gagal menemukan data tabel yang valid.");
                     }
                 } catch (err) {
                     showToast(`Error: ${err.message}`);
@@ -278,7 +286,7 @@
                     btnExt.innerHTML = `Mulai Ekstrak Data`;
                     btnExt.disabled = false;
                 }
-            }, 200);
+            }, 300);
         }
 
         // --- RENDER HALAMAN HOME (COMPACT) ---
@@ -288,7 +296,7 @@
             const container = document.getElementById('reportListArea');
             
             if(metaData.length === 0) {
-                container.innerHTML = '<div class="col-12 text-center py-5 text-muted"><i class="fa-solid fa-inbox fs-1 mb-3"></i><br>Belum ada Laporan.</div>';
+                container.innerHTML = '<div class="col-12 text-center py-5 text-muted"><i class="fa-solid fa-inbox fs-1 mb-3"></i><br>Belum ada data.</div>';
                 return;
             }
 
@@ -298,33 +306,29 @@
                 const date = new Date(meta.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
                 const isSynced = meta.drive_link ? `<span class="badge bg-success bg-opacity-25 text-success ms-1 p-1" style="font-size:0.6rem;"><i class="fa-solid fa-cloud-check"></i> Tersimpan</span>` : '';
                 
-                // Gunakan col-lg-3 col-md-4 col-sm-6 agar memuat lebih banyak kartu dalam 1 baris
                 container.innerHTML += `
                 <div class="col-lg-3 col-md-4 col-sm-6">
                     <div class="glass-panel report-card d-flex flex-column justify-content-between" onclick="openDashboard('${meta.project_name}')">
-                        <!-- Tombol Hapus Spesifik Card -->
                         <button class="btn btn-outline-danger btn-delete-card" onclick="event.stopPropagation(); deleteSpecificProject('${meta.project_name}')" title="Hapus Laporan Ini">
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
-                        
                         <div>
                             <h6 class="text-light mb-1 fw-bold text-truncate pe-4" title="${meta.project_name}">${meta.project_name}</h6>
                             <small class="text-muted" style="font-size: 0.7rem;"><i class="fa-regular fa-calendar"></i> ${date} ${isSynced}</small>
                         </div>
                         <div class="mt-2">
-                            <h4 class="text-orange m-0 fw-bold">${count.toLocaleString('id-ID')} <small class="text-muted fw-normal" style="font-size: 0.7rem;">KPM</small></h4>
+                            <h4 class="text-orange m-0 fw-bold">${count.toLocaleString('id-ID')} <small class="text-muted fw-normal" style="font-size: 0.7rem;">Baris</small></h4>
                         </div>
                     </div>
                 </div>`;
             }
         }
 
-        // --- HAPUS SPESIFIK & HAPUS SEMUA ---
         async function deleteSpecificProject(projName) {
             if(confirm(`Yakin ingin menghapus laporan "${projName}"?`)) {
                 await db.masterData.where('project_name').equals(projName).delete();
                 await db.projectMeta.delete(projName);
-                showToast(`Laporan "${projName}" berhasil dihapus.`);
+                showToast(`Data "${projName}" berhasil dihapus.`);
                 renderHomePage();
             }
         }
@@ -336,6 +340,32 @@
                 renderHomePage();
                 showToast("Semua arsip lokal berhasil dibersihkan.");
             }
+        }
+
+        // --- PENCARI KOLOM AGREGASI CERDAS ---
+        function findBestGroupingColumn(data) {
+            if (!data || data.length === 0) return null;
+            // Hindari mem-pivot kolom sistem
+            const keys = Object.keys(data[0]).filter(k => k !== 'project_name' && k !== 'id' && !k.startsWith('SUMBER_'));
+
+            // 1. Cari kolom spesifik (Kecamatan, Status, Keterangan, Hasil)
+            const priorityKeywords = ['KEC', 'DESA', 'KEL', 'STATUS', 'KET', 'HASIL', 'KATEGORI', 'JENIS'];
+            for (let kw of priorityKeywords) {
+                let found = keys.find(k => k.toUpperCase().includes(kw));
+                if (found) return found;
+            }
+
+            // 2. Fallback: Cari kolom kategorial apa saja (Nilai unik antara 2 hingga 40)
+            for (let key of keys) {
+                let uniqueVals = new Set();
+                let isGood = true;
+                for (let i = 0; i < Math.min(data.length, 100); i++) { // Cek 100 sampel
+                    if(data[i][key] !== undefined && data[i][key] !== "") uniqueVals.add(data[i][key]);
+                    if (uniqueVals.size > 40) { isGood = false; break; } // Terlalu banyak unik (Bisa jadi NIK / Nama)
+                }
+                if (isGood && uniqueVals.size >= 2) return key;
+            }
+            return keys.length > 0 ? keys[0] : null; 
         }
 
         // --- BUKA DASHBOARD ---
@@ -358,22 +388,28 @@
                 document.getElementById('dashSyncStatus').innerHTML = `<i class="fa-solid fa-hard-drive text-warning"></i> Arsip Lokal`;
             }
 
-            let kecamatanCol = Object.keys(data[0] || {}).find(k => k.includes('KECAMATAN') || k.includes('KEC'));
+            // Agregasi Otomatis yang Dinamis!
+            let bestCol = findBestGroupingColumn(data);
             const tbody = document.getElementById('kecamatanBody');
-            if(kecamatanCol) {
+            
+            if(bestCol) {
+                document.getElementById('aggregationLabel').innerText = bestCol.replace(/_/g, ' ');
+                document.getElementById('thAgregasi').innerText = "Kategori";
+
                 const countMap = data.reduce((acc, row) => {
-                    let loc = row[kecamatanCol] || 'LAINNYA';
+                    let loc = row[bestCol] ? row[bestCol] : 'Tidak Ada Data';
                     acc[loc] = (acc[loc] || 0) + 1;
                     return acc;
                 }, {});
                 
                 let sortedCount = Object.entries(countMap).sort((a,b) => b[1] - a[1]);
                 tbody.innerHTML = '';
-                sortedCount.forEach(([kec, count]) => {
-                    tbody.innerHTML += `<tr><td class="text-light">${kec}</td><td class="text-end fw-bold text-orange">${count.toLocaleString('id-ID')}</td></tr>`;
+                sortedCount.forEach(([cat, count]) => {
+                    tbody.innerHTML += `<tr><td class="text-light">${cat}</td><td class="text-end fw-bold text-orange">${count.toLocaleString('id-ID')}</td></tr>`;
                 });
             } else {
-                tbody.innerHTML = `<tr><td colspan="2" class="text-warning text-center py-2"><i class="fa-solid fa-circle-exclamation"></i> Kolom Kecamatan tidak ada.</td></tr>`;
+                document.getElementById('aggregationLabel').innerText = "Data Tak Dikenal";
+                tbody.innerHTML = `<tr><td colspan="2" class="text-warning text-center py-2"><i class="fa-solid fa-circle-exclamation"></i> Data terlalu unik untuk dikelompokkan.</td></tr>`;
             }
             
             renderTable(data);
@@ -382,10 +418,7 @@
 
         // --- SINKRONISASI KE GOOGLE DRIVE ---
         async function syncReportToCloud() {
-            if(!currentProcessedData.length) {
-                showToast("Data masih kosong, tidak ada yang bisa dikirim.");
-                return;
-            }
+            if(!currentProcessedData.length) return;
             
             const btnSync = document.getElementById('btnSyncReport');
             const originalText = btnSync.innerHTML;
@@ -398,6 +431,12 @@
                     body: JSON.stringify({ action: "sync_report", project_name: currentProject, payload: currentProcessedData }),
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' }
                 });
+                
+                // Menangkap Error "Failed to fetch" akibat CORS/Hak Akses GAS
+                if (!response.ok && response.type === 'opaque') {
+                     throw new Error("Akses Ditolak oleh Google. Pastikan Web App GAS Anda disetel 'Akses: Siapa Saja' (Anyone).");
+                }
+                
                 const result = await response.json();
                 
                 if(result.status === 'success') {
@@ -408,7 +447,11 @@
                     throw new Error(result.message); 
                 }
             } catch (e) { 
-                showToast(`<i class="fa-solid fa-triangle-exclamation text-danger"></i> Gagal Sync: ${e.message}`); 
+                if(e.message.includes('Failed to fetch')) {
+                    showToast(`<i class="fa-solid fa-triangle-exclamation text-danger"></i> Gagal! Cek pengaturan 'Akses: Siapa Saja' (Anyone) di Google Apps Script Anda.`);
+                } else {
+                    showToast(`<i class="fa-solid fa-triangle-exclamation text-danger"></i> Gagal Sync: ${e.message}`); 
+                }
             } finally {
                 btnSync.innerHTML = originalText;
                 btnSync.disabled = false;
@@ -432,6 +475,7 @@
                     body: JSON.stringify({ action: "ask_ai", prompt: prompt }), 
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' }
                 });
+                
                 const result = await response.json();
                 if(result.status === 'success') {
                     const aiJSON = result.ai_response;
@@ -440,7 +484,11 @@
                     document.getElementById('aiPrompt').value = '';
                 } else { throw new Error(result.message); }
             } catch (error) { 
-                document.getElementById('aiSummaryBox').innerHTML = `<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Error: ${error.message}</span>`; 
+                if(error.message.includes('Failed to fetch') || error.message.includes('Unexpected token')) {
+                    document.getElementById('aiSummaryBox').innerHTML = `<span class="text-danger"><i class="fa-solid fa-shield-cat"></i> Akses Diblokir. Pastikan Google Apps Script Anda sudah diatur ke akses "Siapa Saja" (Anyone).</span>`;
+                } else {
+                    document.getElementById('aiSummaryBox').innerHTML = `<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Error: ${error.message}</span>`; 
+                }
             } finally {
                 btnSend.innerHTML = `<i class="fa-solid fa-paper-plane fs-6"></i>`;
             }
@@ -479,7 +527,11 @@
             const headers = Object.keys(previewData[0]).filter(h => h !== 'project_name' && h !== 'id');
             
             let trHead = '<tr>'; 
-            headers.forEach(h => trHead += `<th class="text-orange py-2 px-3">${h}</th>`); 
+            headers.forEach(h => {
+                // Beri warna berbeda khusus untuk kolom pelacak sumber
+                let colorClass = h.startsWith('SUMBER_') ? 'text-primary' : 'text-orange';
+                trHead += `<th class="${colorClass} py-2 px-3">${h}</th>`;
+            }); 
             head.innerHTML = trHead + '</tr>';
             
             previewData.forEach(row => {
@@ -489,7 +541,7 @@
             });
             
             if(dataArray.length > 50) {
-                body.innerHTML += `<tr><td colspan="100%" class="text-center bg-dark text-muted fw-bold py-2">... Menampilkan 50 dari ${dataArray.length.toLocaleString('id-ID')} baris ...</td></tr>`;
+                body.innerHTML += `<tr><td colspan="100%" class="text-center bg-dark text-muted fw-bold py-2">... Menampilkan 50 dari ${dataArray.length.toLocaleString('id-ID')} baris. Download XLSX untuk melihat semua data. ...</td></tr>`;
             }
         }
         
